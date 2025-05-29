@@ -1,10 +1,8 @@
 import pygame
 # Kolory
-RED = (255, 0, 0)
 WHITE = (255, 255, 255)
 GREEN = (0, 200, 0)
 BLACK = (0, 0, 0)
-DARK_RED = (150, 0, 0)
 PANEL_BG = (240, 240, 240)
 DARK_PINK = "#FC0880"
 PINK="#FA43A3"
