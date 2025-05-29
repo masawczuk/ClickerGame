@@ -1,106 +1,158 @@
-import tkinter as tk
-from PIL import Image, ImageTk
+import pygame
+import sys
 
-class ClickerGame:
-    def __init__(self, master):
-        self.master = master
-        self.master.title("Clicker Game")
+pygame.init()
 
-        self.points = 0
-        self.points_per_click = 1
-        self.upgrade_cost = 10
+# Stałe
+SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600
+FPS = 60
 
-        self.frame_img = Image.open("ramka.png")
+# Kolory
+RED = (255, 0, 0)
+WHITE = (255, 255, 255)
+GREEN = (0, 200, 0)
+BLACK = (0, 0, 0)
+DARK_RED = (150, 0, 0)
 
-        # Wczytaj tło i obrazek karma.png
-        self.background_img_orig = Image.open("background/background_lvl1.png")
-        self.original_img = Image.open("pies/pies1.png")
-        self.img_width = 300
-        self.img_height = 300
+# Inicjalizacja okna
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
+pygame.display.set_caption("Clicker Game")
 
-        self.canvas = tk.Canvas(master, highlightthickness=0)
-        self.canvas.pack(fill=tk.BOTH, expand=True)
-        self.canvas.bind("<Button-1>", self.click)
+clock = pygame.time.Clock()
 
-        # UI frames ...
-        self.top_frame = tk.Frame(master, bg="#ffffff")
-        self.top_frame.place(relx=0.5, rely=0.02, anchor="n")
+# Załaduj obrazy
+frame_img_orig = pygame.image.load("ramka.png").convert_alpha()
+frame_img = pygame.transform.smoothscale(frame_img_orig, (400, 120))
 
-        self.label = tk.Label(self.top_frame, text=f"Punkty: {self.points}", font=("Arial", 24), bg="#ffffff")
-        self.label.pack(padx=10, pady=5)
+background_img_orig = pygame.image.load("background/background_lvl1.png").convert()
+background_img = pygame.transform.scale(background_img_orig, (SCREEN_WIDTH, SCREEN_HEIGHT))
 
-        self.bottom_frame = tk.Frame(master, bg="#ffffff")
-        self.bottom_frame.place(relx=0.5, rely=0.95, anchor="s")
+dog_img_orig = pygame.image.load("pies/pies1.png").convert_alpha()
+dog_width, dog_height = 300, 300
+dog_img = pygame.transform.smoothscale(dog_img_orig, (dog_width, dog_height))
 
-        self.upgrade_button = tk.Button(self.bottom_frame, text=f"Ulepsz (+1 za klik) - Koszt: {self.upgrade_cost}", font=("Arial", 14), command=self.upgrade)
-        self.upgrade_button.pack(padx=10, pady=5)
+# Czcionki
+font_points = pygame.font.SysFont("Arial", 30)
+font_button = pygame.font.SysFont("Arial", 20)
+font_info = pygame.font.SysFont("Arial", 18)
 
-        self.info_label = tk.Label(self.bottom_frame, text="", font=("Arial", 12), fg="green", bg="#ffffff")
-        self.info_label.pack(padx=10, pady=5)
+# Zmienne gry
+points = 0
+points_per_click = 1
+upgrade_cost = 10
+info_text = ""
+info_color = GREEN
+info_timer = 0  # odliczanie do zniknięcia info
 
-        self.master.bind("<Configure>", self.draw)
 
-        self.draw()
+def draw_top_panel():
+    # Panel górny - ramka + punkty
+    panel_x = (screen.get_width() - 400) // 2
+    panel_y = 10
+    screen.blit(frame_img, (panel_x, panel_y))
 
-    def click(self, event=None):
-        self.points += self.points_per_click
-        self.update_ui()
+    points_text = font_points.render(f"Punkty: {points}", True, BLACK)
+    # Wyśrodkowanie tekstu w ramce (400x120)
+    text_rect = points_text.get_rect(center=(panel_x + 200, panel_y + 60))
+    screen.blit(points_text, text_rect)
 
-    def upgrade(self):
-        if self.points >= self.upgrade_cost:
-            self.points -= self.upgrade_cost
-            self.points_per_click += 1
-            self.upgrade_cost = int(self.upgrade_cost * 1.5)
-            self.info_label.config(text="Ulepszenie kupione!", fg="green")
-        else:
-            self.info_label.config(text="Za mało punktów!", fg="red")
-        self.update_ui()
 
-    def update_ui(self):
-        self.label.config(text=f"Punkty: {self.points}")
-        self.upgrade_button.config(text=f"Ulepsz (+1 za klik) - Koszt: {self.upgrade_cost}")
-        self.info_label.after(2000, lambda: self.info_label.config(text="", fg="green"))
+def draw_dog():
+    x = (screen.get_width() - dog_width) // 2
+    y = (screen.get_height() - dog_height) // 2
+    screen.blit(dog_img, (x, y))
+    return pygame.Rect(x, y, dog_width, dog_height)  # prostokąt do detekcji kliknięć
 
-    def draw(self, event=None):
-        width = self.master.winfo_width()
-        height = self.master.winfo_height()
 
-        if width < 2 or height < 2:
-            return
+def draw_bottom_panel():
+    # Panel dolny z przyciskiem i info
+    button_width = 300
+    button_height = 40
+    x = (screen.get_width() - button_width) // 2
+    y = screen.get_height() - button_height - 20
 
-        # Skalowanie tła do rozmiaru okna
-        try:
-            resample = Image.Resampling.LANCZOS
-        except AttributeError:
-            resample = Image.ANTIALIAS
+    # Rysuj przycisk
+    mouse_pos = pygame.mouse.get_pos()
+    button_rect = pygame.Rect(x, y, button_width, button_height)
+    if button_rect.collidepoint(mouse_pos):
+        color = DARK_RED
+    else:
+        color = RED
+    pygame.draw.rect(screen, color, button_rect, border_radius=8)
 
-        bg_resized = self.background_img_orig.resize((width, height), resample)
-        self.bg_photo = ImageTk.PhotoImage(bg_resized)
+    button_text = font_button.render(f"Ulepsz (+1 za klik) - Koszt: {upgrade_cost}", True, WHITE)
+    text_rect = button_text.get_rect(center=button_rect.center)
+    screen.blit(button_text, text_rect)
 
-        # Stały rozmiar obrazka karma.png
-        img_resized = self.original_img.resize((self.img_width, self.img_height), resample)
-        self.karma_photo = ImageTk.PhotoImage(img_resized)
+    # Info label pod przyciskiem
+    if info_text:
+        info_surface = font_info.render(info_text, True, info_color)
+        info_rect = info_surface.get_rect(center=(screen.get_width() // 2, y + button_height + 25))
+        screen.blit(info_surface, info_rect)
 
-        self.canvas.delete("all")
+    return button_rect
 
-        # Wstaw tło
-        self.canvas.create_image(0, 0, anchor=tk.NW, image=self.bg_photo)
 
-        # Oblicz pozycję karma.png na środku
-        x = (width - self.img_width) // 2
-        y = (height - self.img_height) // 2
-        self.canvas.create_image(x, y, anchor=tk.NW, image=self.karma_photo)
+def show_info(text, color=GREEN, duration=2000):
+    global info_text, info_color, info_timer
+    info_text = text
+    info_color = color
+    info_timer = pygame.time.get_ticks() + duration
 
-        # Trzymaj referencje do zdjęć, aby nie zostały usunięte przez GC
-        self.canvas.bg_photo = self.bg_photo
-        self.canvas.karma_photo = self.karma_photo
+
+def main():
+    global points, points_per_click, upgrade_cost, info_text, info_timer
+
+    running = True
+    while running:
+        clock.tick(FPS)
+
+        # Eventy
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+            elif event.type == pygame.VIDEORESIZE:
+                # Przeskaluj tło i ramkę na nowy rozmiar ekranu
+                new_w, new_h = event.w, event.h
+                pygame.display.set_mode((new_w, new_h), pygame.RESIZABLE)
+                global background_img
+                background_img = pygame.transform.scale(background_img_orig, (new_w, new_h))
+
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                mouse_pos = event.pos
+
+                # Klik na psa = dodaj punkty
+                dog_rect = draw_dog()  # pobierz aktualny rect psa
+                if dog_rect.collidepoint(mouse_pos):
+                    points += points_per_click
+
+                # Klik na przycisk ulepszania
+                button_rect = draw_bottom_panel()
+                if button_rect.collidepoint(mouse_pos):
+                    if points >= upgrade_cost:
+                        points -= upgrade_cost
+                        points_per_click += 1
+                        upgrade_cost = int(upgrade_cost * 1.5)
+                        show_info("Ulepszenie kupione!", GREEN)
+                    else:
+                        show_info("Za mało punktów!", (255, 0, 0))
+
+        # Czyszczenie ekranu + rysowanie
+        screen.blit(background_img, (0, 0))
+        draw_top_panel()
+        draw_dog()
+        draw_bottom_panel()
+
+        # Ukryj info po czasie
+        if info_text and pygame.time.get_ticks() > info_timer:
+            info_text = ""
+
+        pygame.display.flip()
+
+    pygame.quit()
+    sys.exit()
+
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    screen_width = root.winfo_screenwidth()
-    screen_height = root.winfo_screenheight()
-    root.geometry(f"{screen_width}x{screen_height}")
-    root.resizable(True, True)
-
-    game = ClickerGame(root)
-    root.mainloop()
+    main()
