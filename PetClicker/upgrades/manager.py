@@ -5,8 +5,6 @@ from .temp_multiplier import TemporaryMultiplierUpgrade
 
 class UpgradeManager:
     def __init__(self):
-        self.click_upgrade_score = 0  # <- dodaj ten wiersz
-
         self.dog_upgrade_score = 0  # liczba ulepszeń do zmiany psa
         self.background_upgrade_score = 0  # liczba ulepszeń do zmiany planszy
 
@@ -15,8 +13,6 @@ class UpgradeManager:
 
         click1 = ClickUpgrade(cost=10, add_points=1)
         click1.on_upgrade()
-
-        self.total_upgrade_points = 0
 
         self.click_upgrades = [
             click1,

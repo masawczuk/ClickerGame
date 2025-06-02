@@ -29,7 +29,7 @@ class Game:
         self.assets = AssetsLoader()  # teraz ładujemy obrazy
 
         self.screen = pygame.display.get_surface()  # pobierz aktywny ekran
-        pygame.display.set_caption("Clicker z ulepszeniami")
+        pygame.display.set_caption("Pet Clicker")
         self.clock = pygame.time.Clock()
 
         self.upgrade_manager = UpgradeManager()
@@ -42,9 +42,10 @@ class Game:
 
         self.floating_texts = []
         self.current_player = "Gracz1"  # domyślny gracz – może być później zmieniony w menu wyboru
-
-        self.load_game()
-
+        if os.path.exists(f"save_{self.current_player}.json"):
+            self.load_game()
+        else:
+            self.reset_game()
 
     def add_points(self, amount):
         self.points += amount
@@ -85,7 +86,7 @@ class Game:
                         idx = i - 6
                         self.points, ok = self.upgrade_manager.perform_temp_multiplier_upgrade(idx, self.points)
                         if ok:
-                            self.ui_manager.show_info("Aktywowano mnożnik x2 na kliknięcia!", PINK)
+                            self.ui_manager.show_info("Aktywowano mnożnik x2", PINK)
                         else:
                             self.ui_manager.show_info("Brak punktów!", NAVY)
                     return True
@@ -215,10 +216,13 @@ class Game:
         }
 
         save_path = f"save_{self.current_player}.json"
-        with open(save_path, "w") as f:
-            json.dump(data, f)
+        try:
+            with open(save_path, "w") as f:
+                json.dump(data, f)
+            self.ui_manager.show_info(f"Zapisano jako {self.current_player}", PINK)
+        except Exception as e:
+            self.ui_manager.show_info(f"Błąd zapisu: {str(e)}", NAVY)
 
-        self.ui_manager.show_info(f"Zapisano jako {self.current_player}", PINK)
 
     def load_game(self):
         if not self.current_player:
@@ -229,8 +233,12 @@ class Game:
         if not os.path.exists(filename):
             return  # lub opcjonalnie: self.ui_manager.show_info("Brak zapisu!", NAVY)
 
-        with open(filename, "r") as f:
-            data = json.load(f)
+        try:
+            with open(filename, "r") as f:
+                data = json.load(f)
+        except Exception as e:
+            self.ui_manager.show_info(f"Błąd wczytywania: {str(e)}", NAVY)
+            return
 
         # RESETUJ aktualne wartości przed załadowaniem nowych danych
         for upgrade in self.upgrade_manager.click_upgrades:
@@ -264,15 +272,6 @@ class Game:
             self.upgrade_manager.temp_multipliers[i].cost = multiplier_data.get("cost",
                                                                                 self.upgrade_manager.temp_multipliers[
                                                                                     i].cost)
-        for i, lvl in enumerate(data.get("click_levels", [])):
-            self.upgrade_manager.click_upgrades[i].level = lvl
-        for i, cost in enumerate(data.get("click_costs", [])):
-            self.upgrade_manager.click_upgrades[i].cost = cost
-
-        for i, lvl in enumerate(data.get("ps_levels", [])):
-            self.upgrade_manager.ps_upgrades[i].level = lvl
-        for i, cost in enumerate(data.get("ps_costs", [])):
-            self.upgrade_manager.ps_upgrades[i].cost = cost
 
         # Liczniki zmian psa i tła
         self.upgrade_manager.dog_upgrade_score = data.get("dog_upgrade_score", 0)
@@ -302,13 +301,18 @@ class Game:
 
     def choose_player(self):
         if not os.path.exists("players.json"):
-            with open("players.json", "w") as f:
-                json.dump(["Gracz1"], f)
+            try:
+                with open("players.json", "w") as f:
+                    json.dump(["Gracz1"], f)
+            except Exception as e:
+                self.ui_manager.show_info(f"Błąd tworzenia pliku graczy: {str(e)}", NAVY)
+                return
 
-        with open("players.json", "r") as f:
-            players = json.load(f)
-
-        if not players:
+        try:
+            with open("players.json", "r") as f:
+                players = json.load(f)
+        except Exception as e:
+            self.ui_manager.show_info(f"Błąd wczytywania graczy: {str(e)}", NAVY)
             players = ["Gracz1"]
 
         width, height = self.screen.get_size()

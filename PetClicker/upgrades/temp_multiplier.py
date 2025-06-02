@@ -6,8 +6,6 @@ class TemporaryMultiplierUpgrade(Upgrade):
         super().__init__(cost)
         self.duration_ms = duration_ms
         self.active_until = 0
-        self.base_cost = cost
-
 
     def on_upgrade(self):
         pass  # Do niczego w tej metodzie
